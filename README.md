@@ -1,4 +1,4 @@
 # ProjektGeometryczne
 
 
-Tutaj zrobimy dokumentacje np
+Tutaj zrobimy dokumentacje np.

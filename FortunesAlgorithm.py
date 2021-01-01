@@ -1,5 +1,40 @@
-import heapq
-import bintrees
+from PriorityQueue import PriorityQueue
+
+
+class CircleEvent:
+    def __init__(self,y,point,arc):
+        self.y = y
+        self.x = point.x
+        self.point = point
+        self.arc = arc
+        self.valid = True
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class Arc:
+    def __init__(self, p, prev=None, next=None):
+        self.point = p
+        self.prev = prev
+        self.next = next
+        self.event = None
+        self.halfEdge = None
+
+
+class HalfEdge:
+    def __init__(self, start):
+        self.start = start
+        self.end = None
+
+    def finish(self, end):
+        if self.end is not None:
+            return
+        else:
+            self.end = end
+
+
 
 
 def findArc(T, point):
@@ -24,8 +59,8 @@ def findArc(T, point):
 
 def findParabolasIntersections(sweep, point1, point2):
     ys = sweep
-    x1, y1 = point1
-    x2, y2 = point2
+    x1, y1 = point1.x, point1.y
+    x2, y2 = point2.x, point2.y
 
     a = 2 * (y2 - y1)
     b = 4 * (-x1 * y2 + x1 * ys + x2 * y1 - x2 * ys)
@@ -83,7 +118,7 @@ def handlePointEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges):
     for i in range( len(points)-2):
         center = findCircleCenter(points[i], points[i+1], points[i+2])
         if center[1] < point[1]:
-            heapq.heappush(Q, (center[1], center, False))
+            Q.push( center)
 
 
 
@@ -100,13 +135,13 @@ def handleCircleEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges)
     for i in range( len(points)-2):
         center = findCircleCenter(points[i], points[i+1], points[i+2])
         if center[1] < point[1]:
-            heapq.heappush(Q, (center[1], center, False))
+            Q.push( center)
 
 
 def findCircleCenter(a, b, c):
-    x1, y1 = a
-    x2, y2 = b
-    x3, y3 = c
+    x1, y1 = a.x, a.y
+    x2, y2 = b.x, b.y
+    x3, y3 = c.x, c.y
 
     xs = 0.5 * ((x2 ** 2) * y3 + (y2 ** 2) * y3 - (x1 ** 2) * y3 - (y1 ** 2) * y3 + (x1 ** 2) * y2 + (y1 ** 2) * y2 - (
             x3 ** 2) * y2 - (y3 ** 2) * y2 + (x3 ** 2) * y1 + (y3 ** 2) * y1 - (x2 ** 2) * y1 - (y2 ** 2) * y1) / (
@@ -116,7 +151,7 @@ def findCircleCenter(a, b, c):
             x2 ** 2) * x3 - (y2 ** 2) * x3 + (x1 ** 2) * x3 - (x1 ** 2) * x2 + (y1 ** 2) * x3 - (y1 ** 2) * x2) / (
                  y1 * x3 - y1 * x2 - y2 * x3 - y3 * x1 + y3 * x2 + y2 * x1)
 
-    return xs, ys
+    return Point(xs, ys)
 
 
 def findCircleEvents():
@@ -126,15 +161,13 @@ def findCircleEvents():
 def Fortune(points):
     diagramPoints = []
     diagramEdges = {}
-    beachLinePoints = bintrees.RBTree()
-    T = bintrees.RBTree()
-    Q = []
+    T = None
+    Q = PriorityQueue()
     for point in points:
-        heapq.heappush(Q, (point[1], point, True))
+        Q.push(Point(point[0],point[1]))
 
-    while not Q:
-        event = heapq.heappop(Q)
-        sweep = event[0]
+    while Q:
+        event = Q.pop()
         if event[2]:
             handlePointEvent(event[1], Q, T, beachLinePoints, diagramPoints, diagramEdges)
         else:

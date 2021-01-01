@@ -12,7 +12,7 @@ class PriorityQueue:
 
     def pop(self):
         if not self.queue:
-            raise KeyError('top from an empty priority queue')
+            raise KeyError('pop from an empty priority queue')
         y, x, item = heapq.heappop(self.queue)
         return item
 

@@ -43,185 +43,203 @@ class HalfEdge:
             self.end = end
 
 
-def findParabolasIntersections(sweep, point1, point2):
-    ys = sweep
-    x1, y1 = point1.x, point1.y
-    x2, y2 = point2.x, point2.y
-
-    a = 2 * (y2 - y1)
-    b = 4 * (-x1 * y2 + x1 * ys + x2 * y1 - x2 * ys)
-    c = 2 * ((y2 - ys) * (x1 ** 2 - ys ** 2 + y1 ** 2) - (y1 - ys)(x2 ** 2 - ys ** 2 + y2 ** 2))
-
-    d = b ** 2 - 4 * a * c
-
-    xRes1 = (-b - d ** 0.5) / 2 * a
-    yRes1 = (xRes1 ** 2 - 2 * xRes1 * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
-
-    return Point(xRes1, yRes1)
-
-
-def checkArc(point, arc):
-    if arc is None:
-        return None
-    if point.y == arc.point.y:
-        return None
-
-    leftIntersection = rightIntersection = 0
-
-    if arc.prev is not None:
-        leftIntersection = findParabolasIntersections(point.x, arc.prev.point, point)
-    if arc.next is not None:
-        rightIntersection = findParabolasIntersections(point.x, point, arc.next.point)
-
-    if (arc.prev is None or leftIntersection.x <= point.x) and (arc.next is None or point.x <= rightIntersection.x):
-        y = (arc.point.x ** 2 + (arc.point.y - point.y) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
-        return Point(point.x, y)
-
-    return None
-
-
-def checkCircleEvent(arc, y, events):
-    if arc.event is not None and arc.event.point.y != y:
-        arc.event.valid = False
-
-    arc.event = None
-
-    yMax, center = findCircleCenter(arc.prev.point, arc.point, arc.next.point)
-    if arc.prev is None or arc.next is None:
-        return
-
-    if center is not None and center.y < y:
-        arc.event = CircleEvent(yMax, center, arc)
-        events.push(arc.event)
-
-
-def handlePointEvent(point, events, beachLine, diagram):
-    if beachLine is None:
-        beachLine = Arc(point)
-    else:
-        arc = beachLine
-        while arc is not None:
-            intersection = checkArc(point, arc)
-            if intersection is not None:
-                check = checkArc(point, arc.next)
-                if arc.next is not None and check is None:
-                    arc.next.prev = Arc(arc.point, arc, arc.next)
-                    arc.next = arc.next.prev
-                else:
-                    arc.next = Arc(arc.point)
-                arc.next.secondHalfEdge = arc.secondHalfEdge
-
-                arc.next.prev = Arc(point, arc, arc.next)
-                arc.next = arc.next.prev
-
-                arc = arc.next
-
-                halfEdge = HalfEdge(intersection)
-                diagram.append(halfEdge)
-                arc.prev.secondHalfEdge = arc.firstHalfEdge = halfEdge
-
-                halfEdge = HalfEdge(intersection)
-                diagram.append(halfEdge)
-                arc.prev.firstHalfEdge = arc.secondHalfEdge = halfEdge
-
-                checkCircleEvent(arc.prev, point.y, events)
-                checkCircleEvent(arc, point.y, events)
-                checkCircleEvent(arc.next, point.y, events)
-
-                break
-
-            arc = arc.next
-
-        arc = beachLine
-
-        while arc.next is not None:
-            arc = arc.next
-        arc.next = Arc(point, arc)
-
-        x = (arc.next.point.x + arc.point.x) / 2
-
-        start = Point(x, TOP)
-
-        halfEdge = HalfEdge(start)
-        diagram.append(halfEdge)
-        arc.secondHalfEdge = arc.next.firstHalfEdge = halfEdge
-
-
-def handleCircleEvent(event, events, diagram):
-    if event.valid:
-        halfEdge = HalfEdge(event.point)
-        diagram.append(halfEdge)
-
-        if event.arc.prev is not None:
-            event.arc.prev.next = event.arc.next
-            event.arc.secondHalfEdge = halfEdge
-        if event.arc.next is not None:
-            event.arc.next.prev = event.arc.prev
-            event.arc.firstHalfEdge = halfEdge
-
-        if event.arc.firstHalfEdge is not None:
-            event.arc.firstHalfEdge.finish(event.point)
-
-        if event.arc.secondHalfEdge is not None:
-            event.arc.secondHalfEdge.finish(event.point)
-
-        if event.arc.prev is not None:
-            checkCircleEvent(event.arc.prev, event.y, events)
-
-        if event.arc.next is not None:
-            checkCircleEvent(event.arc.next, event.y, events)
-
-
-def findCircleCenter(a, b, c):
-    x1, y1 = a.x, a.y
-    x2, y2 = b.x, b.y
-    x3, y3 = c.x, c.y
-
-    if x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0:
-        return None
-
-    xs = 0.5 * ((x2 ** 2) * y3 + (y2 ** 2) * y3 - (x1 ** 2) * y3 - (y1 ** 2) * y3 + (x1 ** 2) * y2 + (y1 ** 2) * y2 - (
-            x3 ** 2) * y2 - (y3 ** 2) * y2 + (x3 ** 2) * y1 + (y3 ** 2) * y1 - (x2 ** 2) * y1 - (y2 ** 2) * y1) / (
-                 y1 * x3 - y1 * x2 + y2 * x1 - y2 * x3 + y3 * x2 - y3 * x1)
-
-    ys = 0.5 * (-x1 * (x3 ** 2) - x1 * (y3 ** 2) + x1 * (x2 ** 2) + x1 * (y2 ** 2) + x2 * (x3 ** 2) + x2 * (y3 ** 2) - (
-            x2 ** 2) * x3 - (y2 ** 2) * x3 + (x1 ** 2) * x3 - (x1 ** 2) * x2 + (y1 ** 2) * x3 - (y1 ** 2) * x2) / (
-                 y1 * x3 - y1 * x2 - y2 * x3 - y3 * x1 + y3 * x2 + y2 * x1)
-    yMax = ys + ((x1 - xs) ** 2 + (y1 - ys) ** 2) ** 0.5
-    return yMax, Point(xs, ys)
-
-
-def finishHalfEdges(beachLine):
-    arc = beachLine
-    while arc is not None:
-        if arc.secondHalfEdge is not None:
-            end = findParabolasIntersections(BOTTOM, arc.point, arc.next.point)
-            arc.secondHalfEdge.finish(end)
-        arc = arc.next
-
-
-def printOutput(diagram):
-    for d in diagram:
-        p0 = d.start
-        p1 = d.end
-        print(p0.x, p0.y, p1.x, p1.y)
-
-
-def Fortune(points):
+class Fortune:
     diagram = []
     beachLine = None
     events = PriorityQueue()
-    for point in points:
-        events.push(Point(point[0], point[1]))
 
-    while not events.empty():
-        event = events.pop()
-        if isinstance(event, Point):
-            handlePointEvent(event, events, beachLine, diagram)
+    def findParabolasIntersection(self, sweep, point1, point2):
+        ys = sweep
+        x1, y1 = point1.x, point1.y
+        x2, y2 = point2.x, point2.y
+        if y1==y2:
+            xRes = (y1+y2)/2
+            yRes = y1
+            return Point(xRes, yRes)
+        elif y1==sweep:
+            xRes = x1
+            yRes = (xRes ** 2 - 2 * xRes * x2 + x2 ** 2 - ys ** 2 + y2 ** 2) / (2 * (y2 - ys))
+            return Point(xRes, yRes)
+
+        elif y2 == sweep:
+            xRes = x2
+            yRes = (xRes ** 2 - 2 * xRes * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
+            return Point(xRes, yRes)
         else:
-            handleCircleEvent(event, events, diagram)
+            a = 2 * (y2 - y1)
+            b = 4 * (-x1 * y2 + x1 * ys + x2 * y1 - x2 * ys)
+            c = 2 * ((y2 - ys) * (x1 ** 2 - ys ** 2 + y1 ** 2) - (y1 - ys)*(x2 ** 2 - ys ** 2 + y2 ** 2))
 
-    printOutput(diagram)
+            d = b ** 2 - 4 * a * c
+
+            xRes = (-b - d ** 0.5) / 2 * a
+            yRes = (xRes ** 2 - 2 * xRes * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
+
+            return Point(xRes, yRes)
+
+    def checkArc(self, point, arc):
+        if arc is None:
+            return None
+        if point.y == arc.point.y:
+            return None
+
+        leftIntersection = rightIntersection = 0
+
+        if arc.prev is not None:
+            leftIntersection = self.findParabolasIntersection(point.x, arc.prev.point, point)
+        if arc.next is not None:
+            rightIntersection = self.findParabolasIntersection(point.x, point, arc.next.point)
+
+        if (arc.prev is None or leftIntersection.x <= point.x) and (arc.next is None or point.x <= rightIntersection.x):
+            y = (arc.point.x ** 2 + (arc.point.y - point.y) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
+            return Point(point.x, y)
+
+        return None
+
+    def checkCircleEvent(self, arc, y):
+        if arc.event is not None and arc.event.point.y != y:
+            arc.event.valid = False
+
+        arc.event = None
+
+        if arc.prev is None or arc.next is None:
+            return
+        yMax, center = self.findCircleCenter(arc.prev.point, arc.point, arc.next.point)
+
+        if center is not None and center.y < y:
+            arc.event = CircleEvent(yMax, center, arc)
+            self.events.push(arc.event)
+
+    def handlePointEvent(self, point):
+        if self.beachLine is None:
+            self.beachLine = Arc(point)
+        else:
+            arc = self.beachLine
+            while arc is not None:
+                intersection = self.checkArc(point, arc)
+                if intersection is not None:
+                    check = self.checkArc(point, arc.next)
+                    if arc.next is not None and check is None:
+                        arc.next.prev = Arc(arc.point, arc, arc.next)
+                        arc.next = arc.next.prev
+                    else:
+                        arc.next = Arc(arc.point)
+                    arc.next.secondHalfEdge = arc.secondHalfEdge
+
+                    arc.next.prev = Arc(point, arc, arc.next)
+                    arc.next = arc.next.prev
+
+                    arc = arc.next
+
+                    halfEdge = HalfEdge(intersection)
+                    self.diagram.append(halfEdge)
+                    arc.prev.secondHalfEdge = arc.firstHalfEdge = halfEdge
+
+                    halfEdge = HalfEdge(intersection)
+                    self.diagram.append(halfEdge)
+                    arc.prev.firstHalfEdge = arc.secondHalfEdge = halfEdge
+
+                    self.checkCircleEvent(arc.prev, point.y)
+                    self.checkCircleEvent(arc, point.y)
+                    self.checkCircleEvent(arc.next, point.y)
+
+                    break
+
+                arc = arc.next
+
+            arc = self.beachLine
+
+            while arc.next is not None:
+                arc = arc.next
+            arc.next = Arc(point, arc)
+
+            x = (arc.next.point.x + arc.point.x) / 2
+
+            start = Point(x, TOP)
+
+            halfEdge = HalfEdge(start)
+            self.diagram.append(halfEdge)
+            arc.secondHalfEdge = arc.next.firstHalfEdge = halfEdge
+
+    def handleCircleEvent(self, event):
+        if event.valid:
+            halfEdge = HalfEdge(event.point)
+            self.diagram.append(halfEdge)
+
+            if event.arc.prev is not None:
+                event.arc.prev.next = event.arc.next
+                event.arc.secondHalfEdge = halfEdge
+            if event.arc.next is not None:
+                event.arc.next.prev = event.arc.prev
+                event.arc.firstHalfEdge = halfEdge
+
+            if event.arc.firstHalfEdge is not None:
+                event.arc.firstHalfEdge.finish(event.point)
+
+            if event.arc.secondHalfEdge is not None:
+                event.arc.secondHalfEdge.finish(event.point)
+
+            if event.arc.prev is not None:
+                self.checkCircleEvent(event.arc.prev, event.y)
+
+            if event.arc.next is not None:
+                self.checkCircleEvent(event.arc.next, event.y)
+
+    def findCircleCenter(self, a, b, c):
+        x1, y1 = a.x, a.y
+        x2, y2 = b.x, b.y
+        x3, y3 = c.x, c.y
+
+        if x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0:
+            return None, None
+
+        xs = 0.5 * ((x2 ** 2) * y3 + (y2 ** 2) * y3 - (x1 ** 2) * y3 - (y1 ** 2) * y3 + (x1 ** 2) * y2 + (
+                y1 ** 2) * y2 - (
+                            x3 ** 2) * y2 - (y3 ** 2) * y2 + (x3 ** 2) * y1 + (y3 ** 2) * y1 - (x2 ** 2) * y1 - (
+                            y2 ** 2) * y1) / (
+                     y1 * x3 - y1 * x2 + y2 * x1 - y2 * x3 + y3 * x2 - y3 * x1)
+
+        ys = 0.5 * (-x1 * (x3 ** 2) - x1 * (y3 ** 2) + x1 * (x2 ** 2) + x1 * (y2 ** 2) + x2 * (x3 ** 2) + x2 * (
+                y3 ** 2) - (
+                            x2 ** 2) * x3 - (y2 ** 2) * x3 + (x1 ** 2) * x3 - (x1 ** 2) * x2 + (y1 ** 2) * x3 - (
+                            y1 ** 2) * x2) / (
+                     y1 * x3 - y1 * x2 - y2 * x3 - y3 * x1 + y3 * x2 + y2 * x1)
+        yMax = ys + ((x1 - xs) ** 2 + (y1 - ys) ** 2) ** 0.5
+        return yMax, Point(xs, ys)
+
+    def finishHalfEdges(self):
+        arc = self.beachLine
+        while arc is not None:
+            if arc.secondHalfEdge is not None:
+                end = self.findParabolasIntersection(BOTTOM, arc.point, arc.next.point)
+                arc.secondHalfEdge.finish(end)
 
 
-Fortune([(0, 0), (1, 1), (2, 2)])
+
+            arc = arc.next
+
+    def printOutput(self):
+        for d in self.diagram:
+            p0 = d.start
+            p1 = d.end
+            if p0 is not None and p1 is not None:
+                print(p0.x, p0.y, p1.x, p1.y)
+
+    def Fortune(self, points):
+        for point in points:
+            self.events.push(Point(point[0], point[1]))
+
+        while not self.events.empty():
+            event = self.events.pop()
+            if isinstance(event, Point):
+                self.handlePointEvent(event)
+            else:
+                self.handleCircleEvent(event)
+
+        self.finishHalfEdges()
+        self.printOutput()
+
+
+a = Fortune()
+
+a.Fortune([(0, 0), (1, 1), (3, 2)])

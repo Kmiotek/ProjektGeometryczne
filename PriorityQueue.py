@@ -11,17 +11,18 @@ class PriorityQueue:
         heapq.heappush(self.queue, entry)
 
     def pop(self):
-        while self.queue:
-            y, x, item = heapq.heappop(self.queue)
-            return item
-        raise KeyError('pop from an empty priority queue')
+        if not self.queue:
+            raise KeyError('top from an empty priority queue')
+        y, x, item = heapq.heappop(self.queue)
+        return item
 
     def top(self):
-        while self.queue:
-            y, x, item = heapq.heappop(self.queue)
-            self.push(item)
-            return item
-        raise KeyError('top from an empty priority queue')
+        if not self.queue:
+            raise KeyError('top from an empty priority queue')
+        y, x, item = heapq.heappop(self.queue)
+        self.push(item)
+        return item
+
 
     def empty(self):
         return not self.queue

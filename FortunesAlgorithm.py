@@ -5,18 +5,21 @@ TOP = 500
 LEFT = -500
 RIGHT = 500
 
+
 class CircleEvent:
-    def __init__(self,y,point,arc):
+    def __init__(self, y, point, arc):
         self.y = y
         self.x = point.x
         self.point = point
         self.arc = arc
         self.valid = True
 
+
 class Point:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+
 
 class Arc:
     def __init__(self, p, prev=None, next=None):
@@ -40,9 +43,6 @@ class HalfEdge:
             self.end = end
 
 
-
-
-
 def findParabolasIntersections(sweep, point1, point2):
     ys = sweep
     x1, y1 = point1.x, point1.y
@@ -64,10 +64,9 @@ def checkArc(point, arc):
     if arc is None:
         return None
     if point.y == arc.point.y:
-        return  None
+        return None
 
     leftIntersection = rightIntersection = 0
-
 
     if arc.prev is not None:
         leftIntersection = findParabolasIntersections(point.x, arc.prev.point, point)
@@ -76,27 +75,31 @@ def checkArc(point, arc):
 
     if (arc.prev is None or leftIntersection.x <= point.x) and (arc.next is None or point.x <= rightIntersection.x):
         y = (arc.point.x ** 2 + (arc.point.y - point.y) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
-        return  Point(point.x, y)
+        return Point(point.x, y)
 
-    return  None
+    return None
+
 
 def checkCircleEvent(arc, y, events):
-    center = findCircleCenter(arc.prev.point, arc.point, arc.next.point)
+    if arc.event is not None and arc.event.point.y != y:
+        arc.event.valid = False
+
+    arc.event = None
+
+    yMax, center = findCircleCenter(arc.prev.point, arc.point, arc.next.point)
     if arc.prev is None or arc.next is None:
         return
 
     if center is not None and center.y < y:
-        arc.event = CircleEvent(center.y, center, arc)
+        arc.event = CircleEvent(yMax, center, arc)
         events.push(arc.event)
 
 
-
-def handlePointEvent(point, events, borderLine, diagram):
-
-    if borderLine.empty():
-        borderLine.append(Arc(point))
+def handlePointEvent(point, events, beachLine, diagram):
+    if beachLine is None:
+        beachLine = Arc(point)
     else:
-        arc = borderLine
+        arc = beachLine
         while arc is not None:
             intersection = checkArc(point, arc)
             if intersection is not None:
@@ -121,7 +124,6 @@ def handlePointEvent(point, events, borderLine, diagram):
                 diagram.append(halfEdge)
                 arc.prev.firstHalfEdge = arc.secondHalfEdge = halfEdge
 
-                #check for circle events
                 checkCircleEvent(arc.prev, point.y, events)
                 checkCircleEvent(arc, point.y, events)
                 checkCircleEvent(arc.next, point.y, events)
@@ -130,13 +132,13 @@ def handlePointEvent(point, events, borderLine, diagram):
 
             arc = arc.next
 
-        arc = borderLine
+        arc = beachLine
 
         while arc.next is not None:
             arc = arc.next
         arc.next = Arc(point, arc)
 
-        x = (arc.next.point.x + arc.point.x)/2
+        x = (arc.next.point.x + arc.point.x) / 2
 
         start = Point(x, TOP)
 
@@ -145,22 +147,29 @@ def handlePointEvent(point, events, borderLine, diagram):
         arc.secondHalfEdge = arc.next.firstHalfEdge = halfEdge
 
 
+def handleCircleEvent(event, events, diagram):
+    if event.valid:
+        halfEdge = HalfEdge(event.point)
+        diagram.append(halfEdge)
 
+        if event.arc.prev is not None:
+            event.arc.prev.next = event.arc.next
+            event.arc.secondHalfEdge = halfEdge
+        if event.arc.next is not None:
+            event.arc.next.prev = event.arc.prev
+            event.arc.firstHalfEdge = halfEdge
 
+        if event.arc.firstHalfEdge is not None:
+            event.arc.firstHalfEdge.finish(event.point)
 
-# def handleCircleEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges):
-#     diagramPoints.append(point)
-#
-#     # remove parabola
-#
-#     # add edge
-#
-#     # find circle events
-#     points = beachLinePoints.items()
-#     for i in range(len(points) - 2):
-#         center = findCircleCenter(points[i], points[i + 1], points[i + 2])
-#         if center[1] < point[1]:
-#             Q.push( center)
+        if event.arc.secondHalfEdge is not None:
+            event.arc.secondHalfEdge.finish(event.point)
+
+        if event.arc.prev is not None:
+            checkCircleEvent(event.arc.prev, event.y, events)
+
+        if event.arc.next is not None:
+            checkCircleEvent(event.arc.next, event.y, events)
 
 
 def findCircleCenter(a, b, c):
@@ -178,21 +187,41 @@ def findCircleCenter(a, b, c):
     ys = 0.5 * (-x1 * (x3 ** 2) - x1 * (y3 ** 2) + x1 * (x2 ** 2) + x1 * (y2 ** 2) + x2 * (x3 ** 2) + x2 * (y3 ** 2) - (
             x2 ** 2) * x3 - (y2 ** 2) * x3 + (x1 ** 2) * x3 - (x1 ** 2) * x2 + (y1 ** 2) * x3 - (y1 ** 2) * x2) / (
                  y1 * x3 - y1 * x2 - y2 * x3 - y3 * x1 + y3 * x2 + y2 * x1)
+    yMax = ys + ((x1 - xs) ** 2 + (y1 - ys) ** 2) ** 0.5
+    return yMax, Point(xs, ys)
 
-    return Point(xs, ys)
 
+def finishHalfEdges(beachLine):
+    arc = beachLine
+    while arc is not None:
+        if arc.secondHalfEdge is not None:
+            end = findParabolasIntersections(BOTTOM, arc.point, arc.next.point)
+            arc.secondHalfEdge.finish(end)
+        arc = arc.next
+
+
+def printOutput(diagram):
+    for d in diagram:
+        p0 = d.start
+        p1 = d.end
+        print(p0.x, p0.y, p1.x, p1.y)
 
 
 def Fortune(points):
     diagram = []
-    borderLine = []
+    beachLine = None
     events = PriorityQueue()
     for point in points:
-        events.push(Point(point[0],point[1]))
+        events.push(Point(point[0], point[1]))
 
-    while events:
+    while not events.empty():
         event = events.pop()
-        if event:
-            handlePointEvent(event[1], events, borderLine, diagram)
-        # else:
-        #     handleCircleEvent()
+        if isinstance(event, Point):
+            handlePointEvent(event, events, beachLine, diagram)
+        else:
+            handleCircleEvent(event, events, diagram)
+
+    printOutput(diagram)
+
+
+Fortune([(0, 0), (1, 1), (2, 2)])

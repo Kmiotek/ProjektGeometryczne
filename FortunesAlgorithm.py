@@ -52,11 +52,11 @@ class Fortune:
         ys = sweep
         x1, y1 = point1.x, point1.y
         x2, y2 = point2.x, point2.y
-        if y1==y2:
+        if y1 == y2:
             xRes = (y1+y2)/2
             yRes = y1
             return Point(xRes, yRes)
-        elif y1==sweep:
+        elif y1 == sweep:
             xRes = x1
             yRes = (xRes ** 2 - 2 * xRes * x2 + x2 ** 2 - ys ** 2 + y2 ** 2) / (2 * (y2 - ys))
             return Point(xRes, yRes)
@@ -91,7 +91,7 @@ class Fortune:
             rightIntersection = self.findParabolasIntersection(point.x, point, arc.next.point)
 
         if (arc.prev is None or leftIntersection.x <= point.x) and (arc.next is None or point.x <= rightIntersection.x):
-            y = (arc.point.x ** 2 + (arc.point.y - point.y) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
+            y = (arc.point.y ** 2 + (arc.point.x - point.x) ** 2 - point.y ** 2) / (2 * arc.point.y - 2 * point.y)
             return Point(point.x, y)
 
         return None
@@ -242,4 +242,4 @@ class Fortune:
 
 a = Fortune()
 
-a.Fortune([(0, 0), (1, 1), (3, 2)])
+a.Fortune([(1, 0), (2, 2), (3, 0)])

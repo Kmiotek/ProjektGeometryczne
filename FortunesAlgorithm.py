@@ -1,5 +1,9 @@
 from PriorityQueue import PriorityQueue
 
+BOTTOM = -500
+TOP = 500
+LEFT = -500
+RIGHT = 500
 
 class CircleEvent:
     def __init__(self,y,point,arc):
@@ -39,7 +43,6 @@ class HalfEdge:
 
 
 
-
 def findParabolasIntersections(sweep, point1, point2):
     ys = sweep
     x1, y1 = point1.x, point1.y
@@ -67,23 +70,33 @@ def checkArc(point, arc):
 
 
     if arc.prev is not None:
-        leftIntersection = findParabolasIntersections(point[0], arc.prev.point, point)
+        leftIntersection = findParabolasIntersections(point.x, arc.prev.point, point)
     if arc.next is not None:
-        rightIntersection = findParabolasIntersections(point[0], point, arc.next.point)
+        rightIntersection = findParabolasIntersections(point.x, point, arc.next.point)
 
     if (arc.prev is None or leftIntersection.x <= point.x) and (arc.next is None or point.x <= rightIntersection.x):
-        y = (arc.point.x ** 2 + (arc.point.y - py) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
+        y = (arc.point.x ** 2 + (arc.point.y - point.y) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
         return  Point(point.x, y)
 
     return  None
 
+def checkCircleEvent(arc, y, events):
+    center = findCircleCenter(arc.prev.point, arc.point, arc.next.point)
+    if arc.prev is None or arc.next is None:
+        return
 
-def handlePointEvent(point, Q, T, D):
+    if center is not None and center.y < y:
+        arc.event = CircleEvent(center.y, center, arc)
+        events.push(arc.event)
 
-    if T is None:
-        T.append(Arc(point))
+
+
+def handlePointEvent(point, events, borderLine, diagram):
+
+    if borderLine.empty():
+        borderLine.append(Arc(point))
     else:
-        arc = T
+        arc = borderLine
         while arc is not None:
             intersection = checkArc(point, arc)
             if intersection is not None:
@@ -101,20 +114,23 @@ def handlePointEvent(point, Q, T, D):
                 arc = arc.next
 
                 halfEdge = HalfEdge(intersection)
-                D.append(halfEdge)
+                diagram.append(halfEdge)
                 arc.prev.secondHalfEdge = arc.firstHalfEdge = halfEdge
 
                 halfEdge = HalfEdge(intersection)
-                D.append(halfEdge)
+                diagram.append(halfEdge)
                 arc.prev.firstHalfEdge = arc.secondHalfEdge = halfEdge
 
                 #check for circle events
+                checkCircleEvent(arc.prev, point.y, events)
+                checkCircleEvent(arc, point.y, events)
+                checkCircleEvent(arc.next, point.y, events)
 
                 break
 
             arc = arc.next
 
-        arc = T
+        arc = borderLine
 
         while arc.next is not None:
             arc = arc.next
@@ -122,10 +138,10 @@ def handlePointEvent(point, Q, T, D):
 
         x = (arc.next.point.x + arc.point.x)/2
 
-        start = Point(x, borderTop)
+        start = Point(x, TOP)
 
         halfEdge = HalfEdge(start)
-        D.append(halfEdge)
+        diagram.append(halfEdge)
         arc.secondHalfEdge = arc.next.firstHalfEdge = halfEdge
 
 
@@ -152,6 +168,9 @@ def findCircleCenter(a, b, c):
     x2, y2 = b.x, b.y
     x3, y3 = c.x, c.y
 
+    if x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0:
+        return None
+
     xs = 0.5 * ((x2 ** 2) * y3 + (y2 ** 2) * y3 - (x1 ** 2) * y3 - (y1 ** 2) * y3 + (x1 ** 2) * y2 + (y1 ** 2) * y2 - (
             x3 ** 2) * y2 - (y3 ** 2) * y2 + (x3 ** 2) * y1 + (y3 ** 2) * y1 - (x2 ** 2) * y1 - (y2 ** 2) * y1) / (
                  y1 * x3 - y1 * x2 + y2 * x1 - y2 * x3 + y3 * x2 - y3 * x1)
@@ -163,20 +182,17 @@ def findCircleCenter(a, b, c):
     return Point(xs, ys)
 
 
-def findCircleEvents():
-    pass
-
 
 def Fortune(points):
-    D = []
-    T = []
-    Q = PriorityQueue()
+    diagram = []
+    borderLine = []
+    events = PriorityQueue()
     for point in points:
-        Q.push(Point(point[0],point[1]))
+        events.push(Point(point[0],point[1]))
 
-    while Q:
-        event = Q.pop()
-        if event[2]:
-            handlePointEvent(event[1], Q, T, beachLinePoints, D)
-        else:
-            handleCircleEvent()
+    while events:
+        event = events.pop()
+        if event:
+            handlePointEvent(event[1], events, borderLine, diagram)
+        # else:
+        #     handleCircleEvent()

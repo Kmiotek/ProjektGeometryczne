@@ -20,7 +20,8 @@ class Arc:
         self.prev = prev
         self.next = next
         self.event = None
-        self.halfEdge = None
+        self.firstHalfEdge = None
+        self.secondHalfEdge = None
 
 
 class HalfEdge:
@@ -37,24 +38,6 @@ class HalfEdge:
 
 
 
-def findArc(T, point):
-    try:
-        res = T.ceiling_item(point[0])[1]
-        if res[1][1] == 'leaf':
-            return res
-        else:
-            return res[1][2]
-    except:
-        pass
-
-    try:
-        res = T.floor_item(point[0])[1]
-        if res[1][1] == 'leaf':
-            return res
-        else:
-            return res[1][3]
-    except:
-        return None
 
 
 def findParabolasIntersections(sweep, point1, point2):
@@ -69,71 +52,99 @@ def findParabolasIntersections(sweep, point1, point2):
     d = b ** 2 - 4 * a * c
 
     xRes1 = (-b - d ** 0.5) / 2 * a
-    xRes2 = (-b + d ** 0.5) / 2 * a
     yRes1 = (xRes1 ** 2 - 2 * xRes1 * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
-    yRes2 = (xRes2 ** 2 - 2 * xRes2 * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
 
-    return (xRes1, yRes1), (xRes2, yRes2)
+    return Point(xRes1, yRes1)
 
 
-def handlePointEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges):
-    arc = findArc(T, point)
+def checkArc(point, arc):
     if arc is None:
-        beachLinePoints.insert(point[0], point)
-        T.insert(point[0], (point, "leaf"))
+        return None
+    if point.y == arc.point.y:
+        return  None
 
+    leftIntersection = rightIntersection = 0
+
+
+    if arc.prev is not None:
+        leftIntersection = findParabolasIntersections(point[0], arc.prev.point, point)
+    if arc.next is not None:
+        rightIntersection = findParabolasIntersections(point[0], point, arc.next.point)
+
+    if (arc.prev is None or leftIntersection.x <= point.x) and (arc.next is None or point.x <= rightIntersection.x):
+        y = (arc.point.x ** 2 + (arc.point.y - py) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
+        return  Point(point.x, y)
+
+    return  None
+
+
+def handlePointEvent(point, Q, T, D):
+
+    if T is None:
+        T.append(Arc(point))
     else:
-        curr = T.get_value(arc[0][0])
+        arc = T
+        while arc is not None:
+            intersection = checkArc(point, arc)
+            if intersection is not None:
+                check = checkArc(point, arc.next)
+                if arc.next is not None and check is None:
+                    arc.next.prev = Arc(arc.point, arc, arc.next)
+                    arc.next = arc.next.prev
+                else:
+                    arc.next = Arc(arc.point)
+                arc.next.secondHalfEdge = arc.secondHalfEdge
 
-        intersection1, intersection2 = findParabolasIntersections(point[1], point, curr[0])
+                arc.next.prev = Arc(point, arc, arc.next)
+                arc.next = arc.next.prev
 
-        if point[0] < intersection1[0] < curr[0][0]:
-            T.insert(intersection1[0], (intersection1, "intersection", point, curr[0]))  # (point, "label", left, right)
-        elif curr[0][0] < intersection1[0] < point[0]:
-            T.insert(intersection1[0], (intersection1, "intersection", curr[0], point))  # (point, "label", left, right)
-        else:
-            if intersection1[0] > point[0]:
-                T.insert(intersection1[0],
-                         (intersection1, "intersection", point, curr[0]))  # (point, "label", left, right)
-            else:
-                T.insert(intersection1[0],
-                         (intersection1, "intersection", curr[0], point))  # (point, "label", left, right)
+                arc = arc.next
 
-        if point[0] < intersection2[0] < curr[0][0]:
-            T.insert(intersection2[0], (intersection2, "intersection", point, curr[0]))  # (point, "label", left, right)
-        elif curr[0][0] < intersection2[0] < point[0]:
-            T.insert(intersection2[0], (intersection2, "intersection", curr[0], point))  # (point, "label", left, right)
-        else:
-            if intersection2[0] > point[0]:
-                T.insert(intersection2[0],
-                         (intersection2, "intersection", point, curr[0]))  # (point, "label", left, right)
-            else:
-                T.insert(intersection2[0],
-                         (intersection2, "intersection", curr[0], point))  # (point, "label", left, right)
+                halfEdge = HalfEdge(intersection)
+                D.append(halfEdge)
+                arc.prev.secondHalfEdge = arc.firstHalfEdge = halfEdge
 
-    # add edge to D
+                halfEdge = HalfEdge(intersection)
+                D.append(halfEdge)
+                arc.prev.firstHalfEdge = arc.secondHalfEdge = halfEdge
 
-    # find circle events
-    points = beachLinePoints.items()
-    for i in range(len(points) - 2):
-        center = findCircleCenter(points[i], points[i + 1], points[i + 2])
-        if center[1] < point[1]:
-            Q.push( center)
+                #check for circle events
+
+                break
+
+            arc = arc.next
+
+        arc = T
+
+        while arc.next is not None:
+            arc = arc.next
+        arc.next = Arc(point, arc)
+
+        x = (arc.next.point.x + arc.point.x)/2
+
+        start = Point(x, borderTop)
+
+        halfEdge = HalfEdge(start)
+        D.append(halfEdge)
+        arc.secondHalfEdge = arc.next.firstHalfEdge = halfEdge
 
 
-def handleCircleEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges):
-    diagramPoints.append(point)
 
-    # remove parabola
 
-    # add edge
 
-    # find circle events
-    points = beachLinePoints.items()
-    for i in range(len(points) - 2):
-        center = findCircleCenter(points[i], points[i + 1], points[i + 2])
-        if center[1] < point[1]:
-            Q.push( center)
+# def handleCircleEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges):
+#     diagramPoints.append(point)
+#
+#     # remove parabola
+#
+#     # add edge
+#
+#     # find circle events
+#     points = beachLinePoints.items()
+#     for i in range(len(points) - 2):
+#         center = findCircleCenter(points[i], points[i + 1], points[i + 2])
+#         if center[1] < point[1]:
+#             Q.push( center)
 
 
 def findCircleCenter(a, b, c):
@@ -157,9 +168,8 @@ def findCircleEvents():
 
 
 def Fortune(points):
-    diagramPoints = []
-    diagramEdges = {}
-    T = None
+    D = []
+    T = []
     Q = PriorityQueue()
     for point in points:
         Q.push(Point(point[0],point[1]))
@@ -167,6 +177,6 @@ def Fortune(points):
     while Q:
         event = Q.pop()
         if event[2]:
-            handlePointEvent(event[1], Q, T, beachLinePoints, diagramPoints, diagramEdges)
+            handlePointEvent(event[1], Q, T, beachLinePoints, D)
         else:
             handleCircleEvent()

@@ -53,52 +53,50 @@ def handlePointEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges):
         intersection1, intersection2 = findParabolasIntersections(point[1], point, curr[0])
 
         if point[0] < intersection1[0] < curr[0][0]:
-            T.insert(intersection1[0], (intersection1, "intersection", point, curr[0])) # (point, "label", left, right)
+            T.insert(intersection1[0], (intersection1, "intersection", point, curr[0]))  # (point, "label", left, right)
         elif curr[0][0] < intersection1[0] < point[0]:
-            T.insert(intersection1[0], (intersection1, "intersection", curr[0], point)) # (point, "label", left, right)
+            T.insert(intersection1[0], (intersection1, "intersection", curr[0], point))  # (point, "label", left, right)
         else:
             if intersection1[0] > point[0]:
-                T.insert(intersection1[0], (intersection1, "intersection", point, curr[0]))  # (point, "label", left, right)
+                T.insert(intersection1[0],
+                         (intersection1, "intersection", point, curr[0]))  # (point, "label", left, right)
             else:
-                T.insert(intersection1[0], (intersection1, "intersection", curr[0], point))  # (point, "label", left, right)
+                T.insert(intersection1[0],
+                         (intersection1, "intersection", curr[0], point))  # (point, "label", left, right)
 
         if point[0] < intersection2[0] < curr[0][0]:
-            T.insert(intersection2[0], (intersection2, "intersection", point, curr[0])) # (point, "label", left, right)
+            T.insert(intersection2[0], (intersection2, "intersection", point, curr[0]))  # (point, "label", left, right)
         elif curr[0][0] < intersection2[0] < point[0]:
-            T.insert(intersection2[0], (intersection2, "intersection", curr[0], point)) # (point, "label", left, right)
+            T.insert(intersection2[0], (intersection2, "intersection", curr[0], point))  # (point, "label", left, right)
         else:
             if intersection2[0] > point[0]:
-                T.insert(intersection2[0], (intersection2, "intersection", point, curr[0])) # (point, "label", left, right)
+                T.insert(intersection2[0],
+                         (intersection2, "intersection", point, curr[0]))  # (point, "label", left, right)
             else:
-                T.insert(intersection2[0], (intersection2, "intersection", curr[0], point))  # (point, "label", left, right)
-
-
-
+                T.insert(intersection2[0],
+                         (intersection2, "intersection", curr[0], point))  # (point, "label", left, right)
 
     # add edge to D
 
-
     # find circle events
     points = beachLinePoints.items()
-    for i in range( len(points)-2):
-        center = findCircleCenter(points[i], points[i+1], points[i+2])
+    for i in range(len(points) - 2):
+        center = findCircleCenter(points[i], points[i + 1], points[i + 2])
         if center[1] < point[1]:
             heapq.heappush(Q, (center[1], center, False))
-
 
 
 def handleCircleEvent(point, Q, T, beachLinePoints, diagramPoints, diagramEdges):
     diagramPoints.append(point)
 
-    #remove parabola
+    # remove parabola
 
-    #add edge
-
+    # add edge
 
     # find circle events
     points = beachLinePoints.items()
-    for i in range( len(points)-2):
-        center = findCircleCenter(points[i], points[i+1], points[i+2])
+    for i in range(len(points) - 2):
+        center = findCircleCenter(points[i], points[i + 1], points[i + 2])
         if center[1] < point[1]:
             heapq.heappush(Q, (center[1], center, False))
 
@@ -139,6 +137,3 @@ def Fortune(points):
             handlePointEvent(event[1], Q, T, beachLinePoints, diagramPoints, diagramEdges)
         else:
             handleCircleEvent()
-
-
-

@@ -1,12 +1,13 @@
 import math
 
-from DataType import Point, Circle, Arc, Edge, PriorityQueue
-from Visualization import Scene, PointsCollection, Plot, LinesCollection
+from Visualization import Scene, PointsCollection, LinesCollection, Plot
+from originalData import Point, Circle, Arc, Edge
+from PriorityQueue import PriorityQueue
 
 
-def find_circle_center(a, b, c):
-    # check if bc is a "right turn" from ab - det
-    if ((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) < 0:
+def find_circle_center(a, b, c):  # function from internet
+    # check if bc is a "right turn" from ab
+    if ((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) > 0:
         return None, None
 
     # Joseph O'Rourke, Computational Geometry in C (2nd ed.) p.189
@@ -22,30 +23,14 @@ def find_circle_center(a, b, c):
         return None, None  # Points are co-linear
 
     # point o is the center of the circle
-    ox = (D * E - B * F) / G
-    oy = (A * F - C * E) / G
+    ox = 1.0 * (D * E - B * F) / G
+    oy = 1.0 * (A * F - C * E) / G
 
-    max_x = ox + math.sqrt((a.x - ox) ** 2 + (a.y - oy) ** 2)
+    # o.x plus radius equals max x coord
+    x = ox + math.sqrt((a.x - ox) ** 2 + (a.y - oy) ** 2)
     o = Point(ox, oy)
 
-    return max_x, o
-
-
-def find_intersection_of_parabolas(parabola1, parabola2, sweep_line):
-    p = parabola1
-    if parabola1.x == parabola2.x:
-        py = (parabola1.y + parabola2.y) / 2.0
-    elif parabola2.x == sweep_line:
-        py = parabola2.y
-    elif parabola1.x == sweep_line:
-        py = parabola1.y
-        p = parabola2
-    else:
-        return calculate_parabolas_intersection(parabola1, parabola2, sweep_line)
-
-    px = (p.x ** 2 + (p.y - py) ** 2 - sweep_line ** 2) / (2 * p.x - 2 * sweep_line)
-    res = Point(px, py)
-    return res
+    return x, o
 
 
 def calculate_parabolas_intersection(parabola1, parabola2, sweep_line):
@@ -59,45 +44,61 @@ def calculate_parabolas_intersection(parabola1, parabola2, sweep_line):
 
     py = 1.0 * (-b - math.sqrt(b * b - 4 * a * c)) / (2 * a)
     px = 1.0 * (parabola1.x ** 2 + (parabola1.y - py) ** 2 - sweep_line ** 2) / (2 * parabola1.x - 2 * sweep_line)
-
     return Point(px, py)
 
 
-def check_if_arc_intersects(point, arc):
+def find_intersection_of_parabolas(parabola1, parabola2, sweep_line):
+    if parabola1.x == parabola2.x:
+        py = (parabola1.y + parabola2.y) / 2.0
+        px = 1.0 * (parabola1.x ** 2 + (parabola1.y - py) ** 2 - sweep_line ** 2) / (2 * parabola1.x - 2 * sweep_line)
+        return Point(px, py)
+    elif parabola2.x == sweep_line:
+        py = parabola2.y
+        px = 1.0 * (parabola1.x ** 2 + (parabola1.y - py) ** 2 - sweep_line ** 2) / (2 * parabola1.x - 2 * sweep_line)
+        return Point(px, py)
+    elif parabola1.x == sweep_line:
+        py = parabola1.y
+        px = 1.0 * (parabola2.x ** 2 + (parabola2.y - py) ** 2 - sweep_line ** 2) / (2 * parabola2.x - 2 * sweep_line)
+        return Point(px, py)
+    else:
+        return calculate_parabolas_intersection(parabola1, parabola2, sweep_line)
+
+
+def intersect(point, arc):
     if arc is None:
         return None
     if arc.point.x == point.x:
         return None
 
-    upper_intersection_y = 0
-    lower_intersection_y = 0
+    y1 = 0.0
+    y2 = 0.0
 
     if arc.prev is not None:
-        upper_intersection_y = (find_intersection_of_parabolas(arc.prev.point, arc.point, point.x)).y
+        y1 = find_intersection_of_parabolas(arc.prev.point, arc.point, point.x).y
     if arc.next is not None:
-        lower_intersection_y = (find_intersection_of_parabolas(arc.point, arc.next.point, point.x)).y
+        y2 = find_intersection_of_parabolas(arc.point, arc.next.point, point.x).y
 
-    if (arc.prev is None or upper_intersection_y <= point.y) and (arc.next is None or point.y <= lower_intersection_y):
+    if (arc.prev is None or y1 <= point.y) and (arc.next is None or point.y <= y2):
         py = point.y
         px = (arc.point.x ** 2 + (arc.point.y - py) ** 2 - point.x ** 2) / (2 * arc.point.x - 2 * point.x)
-        return Point(px, py)
+        res = Point(px, py)
+        return res
     return None
 
 
-class Fortune:
+class Voronoi:
     def __init__(self, points):
         self.voronoi = []
         self.beach_line = None
-        self.scenes = []
         self.points = points
+        self.scenes = []
 
         self.events = PriorityQueue()
 
-        # bounding box
         self.LEFT = -50
-        self.RIGHT = -50
-        self.TOP = 500
-        self.BOTTOM = 500
+        self.RIGHT = 50
+        self.BOTTOM = -50
+        self.TOP = 50
 
         self.create_bounding_box(points)
 
@@ -105,22 +106,21 @@ class Fortune:
         for pts in points:
             point = Point(pts[0], pts[1])
             self.events.push(point)
-
             if point.x < self.LEFT:
                 self.LEFT = point.x
-            if point.y < self.TOP:
-                self.TOP = point.y
+            if point.y < self.BOTTOM:
+                self.BOTTOM = point.y
             if point.x > self.RIGHT:
                 self.RIGHT = point.x
-            if point.y > self.BOTTOM:
-                self.BOTTOM = point.y
+            if point.y > self.TOP:
+                self.TOP = point.y
 
         dx = (self.RIGHT - self.LEFT + 1) / 5.0
-        dy = (self.BOTTOM - self.TOP + 1) / 5.0
+        dy = (self.TOP - self.BOTTOM + 1) / 5.0
         self.LEFT = self.LEFT - dx
         self.RIGHT = self.RIGHT + dx
-        self.TOP = self.TOP - dy
-        self.BOTTOM = self.BOTTOM + dy
+        self.BOTTOM = self.BOTTOM - dy
+        self.TOP = self.TOP + dy
 
     def calculate_voronoi_diagram(self):
         while not self.events.empty():
@@ -130,29 +130,24 @@ class Fortune:
             else:
                 self.handle_point_event(event)
 
+        self.scenes.append(Scene([PointsCollection(self.points, color='red'),
+                                  PointsCollection(self.get_voronoi_points(), color='blue')],
+                                 [LinesCollection(self.get_voronoi_lines())]))
+
         self.finish_edges()
+        self.scenes.append(Scene([PointsCollection(self.points, color='red'),
+                                  PointsCollection(self.get_voronoi_points(), color='blue')],
+                                 [LinesCollection(self.get_voronoi_lines())]))
 
-    def calculate_voronoi_diagram_with_visualization(self):
-        while not self.events.empty():
-            event = self.events.pop()
-            if isinstance(event, Circle):
-                self.handle_circle_event(event)
-            else:
-                self.handle_point_event(event)
-            self.scenes.append(Scene([PointsCollection(self.points, color='red'),
-                                      PointsCollection(self.get_voronoi_points(), color='blue')],
-                                     [LinesCollection(self.get_voronoi_lines())]))
-        self.finish_edges_with_visualization()
+    def handle_point_event(self, event):
+        self.insert_arc(event)
 
-    def handle_point_event(self, point):
-        self.insert_arc(point)
-
-    def handle_circle_event(self, circle_event):
-        if circle_event.valid:
-            edge = Edge(circle_event.point)
+    def handle_circle_event(self, event):
+        if event.valid:
+            edge = Edge(event.point)
             self.voronoi.append(edge)
 
-            arc = circle_event.beach_line
+            arc = event.arc
             if arc.prev is not None:
                 arc.prev.next = arc.next
                 arc.prev.lower_edge = edge
@@ -161,9 +156,9 @@ class Fortune:
                 arc.next.upper_edge = edge
 
             if arc.upper_edge is not None:
-                arc.upper_edge.finish(circle_event.point)
+                arc.upper_edge.finish(event.point)
             if arc.lower_edge is not None:
-                arc.lower_edge.finish(circle_event.point)
+                arc.lower_edge.finish(event.point)
 
             if arc.prev is not None:
                 self.check_circle_event(arc.prev)
@@ -187,17 +182,17 @@ class Fortune:
         y = (arc.next.point.y + arc.point.y) / 2.0
         start = Point(x, y)
 
-        edge = Edge(start)
-        arc.lower_edge = arc.next.upper_edge = edge
-        self.voronoi.append(edge)
+        seg = Edge(start)
+        arc.lower_edge = arc.next.upper_edge = seg
+        self.voronoi.append(seg)
 
     def insert_arc_among_existing(self, point):
         arc = self.beach_line
         while arc is not None:
-            intersection_point = check_if_arc_intersects(point, arc)
+            intersection_point = intersect(point, arc)
             if intersection_point is not None:
-                second_intersection_point = check_if_arc_intersects(point, arc.next)
-                if arc.next is not None and second_intersection_point is None:
+                second_intersection_point = intersect(point, arc.next)
+                if (arc.next is not None) and second_intersection_point is None:
                     arc.next.prev = Arc(arc.point, arc, arc.next)
                     arc.next = arc.next.prev
                 else:
@@ -206,21 +201,23 @@ class Fortune:
 
                 arc.next.prev = Arc(point, arc, arc.next)
                 arc.next = arc.next.prev
+
                 arc = arc.next
 
-                edge = Edge(intersection_point)
-                self.voronoi.append(edge)
-                arc.prev.lower_edge = arc.upper_edge = edge
+                seg = Edge(intersection_point)
+                self.voronoi.append(seg)
+                arc.prev.lower_edge = arc.upper_edge = seg
 
-                edge = Edge(intersection_point)
-                self.voronoi.append(edge)
-                arc.next.upper_edge = arc.lower_edge = edge
+                seg = Edge(intersection_point)
+                self.voronoi.append(seg)
+                arc.next.upper_edge = arc.lower_edge = seg
 
                 self.check_circle_event(arc)
                 self.check_circle_event(arc.prev)
                 self.check_circle_event(arc.next)
 
                 return True
+
             arc = arc.next
         return False
 
@@ -232,38 +229,23 @@ class Fortune:
         if arc.prev is None or arc.next is None:
             return
 
-        max_x, center = find_circle_center(arc.prev.point, arc.point, arc.next.point)
-        if center is not None and max_x > self.LEFT:
-            arc.circle_event = Circle(max_x, center, arc)
+        max_x, o = find_circle_center(arc.prev.point, arc.point, arc.next.point)
+        if o is not None and max_x > self.LEFT:
+            arc.circle_event = Circle(max_x, o, arc)
             self.events.push(arc.circle_event)
 
     def finish_edges(self):
-        limit = self.RIGHT + (self.RIGHT - self.LEFT) + (self.BOTTOM - self.TOP)
+        limit = self.RIGHT + (self.RIGHT - self.LEFT) + (self.TOP - self.BOTTOM)
         arc = self.beach_line
         while arc.next is not None:
             if arc.lower_edge is not None:
-                point = find_intersection_of_parabolas(arc.point, arc.next.point, limit * 2.0)
-                arc.lower_edge.finish(Point(-1 * point.x, -1 * point.y))
-            arc = arc.next
-
-    def finish_edges_with_visualization(self):
-        limit = self.RIGHT + (self.RIGHT - self.LEFT) + (self.BOTTOM - self.TOP)
-        arc = self.beach_line
-        while arc.next is not None:
-            if arc.lower_edge is not None:
-                point = find_intersection_of_parabolas(arc.point, arc.next.point, limit * 2.0)
-                arc.lower_edge.finish(Point(-1 * point.x, -1 * point.y))
-                self.scenes.append(Scene([PointsCollection(self.points, color='red'),
-                                          PointsCollection(self.get_voronoi_points(), color='blue')],
-                                         [LinesCollection(self.get_voronoi_lines())]))
+                p = find_intersection_of_parabolas(arc.point, arc.next.point, limit * 2.0)
+                arc.lower_edge.finish(p)
             arc = arc.next
 
     def print_output(self):
         for edge in self.voronoi:
-            if edge.done:
-                print(edge.start.x, edge.start.y, edge.end.x, edge.end.y)
-            else:
-                print(edge.start.x, edge.start.y)
+            print(edge.start.x, edge.start.y, edge.end.x, edge.end.y)
 
     def get_voronoi_points(self):
         result = []
@@ -283,15 +265,11 @@ class Fortune:
         return result
 
 
+a = Voronoi([(4, 1), (0, 9), (1, 5), (7, 10), (-3, 11), (8, 4)])
 
-
-a = Fortune([(4, 1), (0, 9), (1, 5), (7, 10), (-3, 11), (8, 4)])
-
-a.calculate_voronoi_diagram_with_visualization()
+a.calculate_voronoi_diagram()
 
 print(a.scenes)
 
 plot = Plot(a.scenes)
 plot.draw()
-
-a.print_output()

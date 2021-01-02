@@ -86,6 +86,33 @@ def intersect(point, arc):
     return None
 
 
+def intersection_of_lines(line1, line2):
+    p1 = ((line1[0].x * line1[1].y - line1[0].y * line1[1].x) * (line2[0].x - line2[1].x) - (line1[0].x - line1[1].x)
+          * (line2[0].x * line2[1].y - line2[0].y * line2[1].x)) / \
+         ((line1[0].x - line1[1].x) * (line2[0].y - line2[1].y) - (line1[0].y - line1[1].y) * (line2[0].x - line2[1].x))
+    p2 = ((line1[0].x * line1[1].y - line1[0].y * line1[1].x) * (line2[0].y - line2[1].y) - (line1[0].y - line1[1].y)
+          * (line2[0].x * line2[1].y - line2[0].y * line2[1].x)) / \
+         ((line1[0].x - line1[1].x) * (line2[0].y - line2[1].y) - (line1[0].y - line1[1].y) * (line2[0].x - line2[1].x))
+    return Point(p1, p2)
+
+
+def get_bounds(center, size):
+    upper_left = Point(center.x - size, center.y + size)
+    upper_right = Point(center.x + size, center.y + size)
+    lower_left = Point(center.x - size, center.y - size)
+    lower_right = Point(center.x + size, center.y - size)
+    bounds = [(upper_left, upper_right), (lower_left, lower_right), (upper_right, lower_right),
+              (upper_left, lower_left)]
+    return bounds
+
+
+def lines_from_bounds(bounds):
+    result = []
+    for boundary in bounds:
+        result.append([(boundary[0].x, boundary[0].y), (boundary[1].x, boundary[1].y)])
+    return result
+
+
 class Voronoi:
     def __init__(self, points):
         self.voronoi = []
@@ -138,6 +165,11 @@ class Voronoi:
         self.scenes.append(Scene([PointsCollection(self.points, color='red'),
                                   PointsCollection(self.get_voronoi_points(), color='blue')],
                                  [LinesCollection(self.get_voronoi_lines())]))
+        self.bound(Point(0, 0), 20)
+        self.scenes.append(Scene([PointsCollection(self.points, color='red'),
+                                  PointsCollection(self.get_voronoi_points(), color='blue')],
+                                 [LinesCollection(self.get_voronoi_lines()),
+                                  LinesCollection(lines_from_bounds(get_bounds(Point(0, 0), 20)), color='black')]))
 
     def handle_point_event(self, event):
         self.insert_arc(event)
@@ -263,6 +295,22 @@ class Voronoi:
             if edge.done:
                 result.append([(edge.start.x, edge.start.y), (edge.end.x, edge.end.y)])
         return result
+
+    def bound(self, center, size):
+        bounds = get_bounds(center, size)
+        for edge in self.voronoi:
+            if edge.end.y > center.y + size:
+                intersection = intersection_of_lines(bounds[0], (edge.start, edge.end))
+                edge.end = intersection
+            if edge.end.x > center.x + size:
+                intersection = intersection_of_lines(bounds[2], (edge.start, edge.end))
+                edge.end = intersection
+            if edge.end.y < center.y - size:
+                intersection = intersection_of_lines(bounds[1], (edge.start, edge.end))
+                edge.end = intersection
+            if edge.end.x < center.x - size:
+                intersection = intersection_of_lines(bounds[3], (edge.start, edge.end))
+                edge.end = intersection
 
 
 a = Voronoi([(4, 1), (0, 9), (1, 5), (7, 10), (-3, 11), (8, 4)])

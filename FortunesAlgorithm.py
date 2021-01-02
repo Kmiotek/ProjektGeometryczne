@@ -53,7 +53,7 @@ class Fortune:
         x1, y1 = point1.x, point1.y
         x2, y2 = point2.x, point2.y
         if y1 == y2:
-            xRes = (y1+y2)/2
+            xRes = (x1+x2)/2
             yRes = y1
             return Point(xRes, yRes)
         elif y1 == sweep:
@@ -83,7 +83,8 @@ class Fortune:
         if point.y == arc.point.y:
             return None
 
-        leftIntersection = rightIntersection = 0
+        leftIntersection = Point(0, 0)
+        rightIntersection = Point(0, 0)
 
         if arc.prev is not None:
             leftIntersection = self.findParabolasIntersection(point.x, arc.prev.point, point)
@@ -97,7 +98,7 @@ class Fortune:
         return None
 
     def checkCircleEvent(self, arc, y):
-        if arc.event is not None and arc.event.point.y != y:
+        if arc.event is not None and arc.event.point.y != BOTTOM:
             arc.event.valid = False
 
         arc.event = None
@@ -106,7 +107,7 @@ class Fortune:
             return
         yMax, center = self.findCircleCenter(arc.prev.point, arc.point, arc.next.point)
 
-        if center is not None and center.y < y:
+        if center is not None and yMax > BOTTOM:
             arc.event = CircleEvent(yMax, center, arc)
             self.events.push(arc.event)
 
@@ -214,20 +215,18 @@ class Fortune:
                 end = self.findParabolasIntersection(BOTTOM, arc.point, arc.next.point)
                 arc.secondHalfEdge.finish(end)
 
-
-
             arc = arc.next
 
     def printOutput(self):
         for d in self.diagram:
             p0 = d.start
             p1 = d.end
-            if p0 is not None and p1 is not None:
-                print(p0.x, p0.y, p1.x, p1.y)
+
+            print(p0.x, p0.y)
 
     def Fortune(self, points):
         for point in points:
-            self.events.push(Point(point[0], point[1]))
+            self.events.push( Point(point[0], point[1]) )
 
         while not self.events.empty():
             event = self.events.pop()
@@ -242,4 +241,4 @@ class Fortune:
 
 a = Fortune()
 
-a.Fortune([(1, 0), (2, 2), (3, 0)])
+a.Fortune([(1, 0), (2, 2), (3, 0), (4,6)])

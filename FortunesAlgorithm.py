@@ -48,34 +48,86 @@ class Fortune:
     beachLine = None
     events = PriorityQueue()
 
-    def findParabolasIntersection(self, sweep, point1, point2):
-        ys = sweep
-        x1, y1 = point1.x, point1.y
-        x2, y2 = point2.x, point2.y
-        if y1 == y2:
-            xRes = (x1+x2)/2
-            yRes = y1
-            return Point(xRes, yRes)
-        elif y1 == sweep:
-            xRes = x1
-            yRes = (xRes ** 2 - 2 * xRes * x2 + x2 ** 2 - ys ** 2 + y2 ** 2) / (2 * (y2 - ys))
-            return Point(xRes, yRes)
+    def findIntersection(self, sweep, i, j):
 
-        elif y2 == sweep:
-            xRes = x2
-            yRes = (xRes ** 2 - 2 * xRes * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
-            return Point(xRes, yRes)
+        p: Point = i
+
+        # First we replace some stuff to make it easier
+        a = i.x
+        b = i.y
+        c = j.x
+        d = j.y
+        u = 2 * (b - sweep)
+        v = 2 * (d - sweep)
+        xRes = 0
+        yRes = 0
+
+        # Handle the case where the two points have the same y-coordinate (breakpoint is in the middle)
+        if i.y == j.y:
+            xRes = (i.x + j.x) / 2
+
+            if j.x < i.x:
+                yRes = TOP
+                return Point(xRes,yRes)
+
+        # Handle cases where one point's y-coordinate is the same as the sweep line
+        elif i.y == sweep:
+            xRes = i.x
+            p = j
+        elif j.y == sweep:
+            xRes = j.x
         else:
-            a = 2 * (y2 - y1)
-            b = 4 * (-x1 * y2 + x1 * ys + x2 * y1 - x2 * ys)
-            c = 2 * ((y2 - ys) * (x1 ** 2 - ys ** 2 + y1 ** 2) - (y1 - ys)*(x2 ** 2 - ys ** 2 + y2 ** 2))
+            # We now need to solve for x
+            # 1/u * (x**2 - 2*a*x + a**2 + b**2 - l**2) = 1/v * (x**2 - 2*c*x + c**2 + d**2 - l**2)
+            # Then we let Wolfram alpha do the heavy work for us, and we put it here in the code :D
+            xRes = -((
+                v * (a ** 2 * u - 2 * a * c * u + b ** 2 * (u - v) + c ** 2 * u) + d ** 2 * u * (v - u) + sweep ** 2 * (
+                        u - v) ** 2)**0.5 + a * v - c * u) / (u - v)
 
-            d = b ** 2 - 4 * a * c
 
-            xRes = (-b - d ** 0.5) / 2 * a
-            yRes = (xRes ** 2 - 2 * xRes * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
+        # We have to re-evaluate this, since the point might have been changed
+        a = p.x
+        b = p.y
+        x = xRes
+        u = 2 * (b - sweep)
 
-            return Point(xRes, yRes)
+        # Handle degenerate case where parabolas don't intersect
+        if u == 0:
+            yRes = float("inf")
+            return Point(xRes,yRes)
+
+        # And we put everything back in y
+        yRes = 1 / u * (x ** 2 - 2 * a * x + a ** 2 + b ** 2 - sweep ** 2)
+        return Point(xRes,yRes)
+
+    # def findParabolasIntersection(self, sweep, point1, point2):
+    #     ys = sweep
+    #     x1, y1 = point1.x, point1.y
+    #     x2, y2 = point2.x, point2.y
+    #     if y1 == y2:
+    #         xRes = (x1 + x2) / 2
+    #         yRes = y1
+    #         return Point(xRes, yRes)
+    #     elif y1 == sweep:
+    #         xRes = x1
+    #         yRes = (xRes ** 2 - 2 * xRes * x2 + x2 ** 2 - ys ** 2 + y2 ** 2) / (2 * (y2 - ys))
+    #         return Point(xRes, yRes)
+    #
+    #     elif y2 == sweep:
+    #         xRes = x2
+    #         yRes = (xRes ** 2 - 2 * xRes * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
+    #         return Point(xRes, yRes)
+    #     else:
+    #         a = 2 * (y2 - y1)
+    #         b = 4 * (-x1 * y2 + x1 * ys + x2 * y1 - x2 * ys)
+    #         c = 2 * ((y2 - ys) * (x1 ** 2 - ys ** 2 + y1 ** 2) - (y1 - ys) * (x2 ** 2 - ys ** 2 + y2 ** 2))
+    #
+    #         d = b ** 2 - 4 * a * c
+    #
+    #         xRes = (-b - d ** 0.5) / 2 * a
+    #         yRes = (xRes ** 2 - 2 * xRes * x1 + x1 ** 2 - ys ** 2 + y1 ** 2) / (2 * (y1 - ys))
+    #
+    #         return Point(xRes, yRes)
 
     def checkArc(self, point, arc):
         if arc is None:
@@ -87,18 +139,19 @@ class Fortune:
         rightIntersection = Point(0, 0)
 
         if arc.prev is not None:
-            leftIntersection = self.findParabolasIntersection(point.x, arc.prev.point, point)
+            leftIntersection = self.findIntersection(point.y, arc.prev.point, point)
         if arc.next is not None:
-            rightIntersection = self.findParabolasIntersection(point.x, point, arc.next.point)
+            rightIntersection = self.findIntersection(point.y, point, arc.next.point)
 
         if (arc.prev is None or leftIntersection.x <= point.x) and (arc.next is None or point.x <= rightIntersection.x):
             y = (arc.point.y ** 2 + (arc.point.x - point.x) ** 2 - point.y ** 2) / (2 * arc.point.y - 2 * point.y)
+
             return Point(point.x, y)
 
         return None
 
     def checkCircleEvent(self, arc, y):
-        if arc.event is not None and arc.event.point.y != BOTTOM:
+        if arc.event is not None and arc.event.point.y != TOP:
             arc.event.valid = False
 
         arc.event = None
@@ -124,7 +177,7 @@ class Fortune:
                         arc.next.prev = Arc(arc.point, arc, arc.next)
                         arc.next = arc.next.prev
                     else:
-                        arc.next = Arc(arc.point)
+                        arc.next = Arc(arc.point, arc)
                     arc.next.secondHalfEdge = arc.secondHalfEdge
 
                     arc.next.prev = Arc(point, arc, arc.next)
@@ -138,13 +191,13 @@ class Fortune:
 
                     halfEdge = HalfEdge(intersection)
                     self.diagram.append(halfEdge)
-                    arc.prev.firstHalfEdge = arc.secondHalfEdge = halfEdge
+                    arc.next.firstHalfEdge = arc.secondHalfEdge = halfEdge
 
                     self.checkCircleEvent(arc.prev, point.y)
                     self.checkCircleEvent(arc, point.y)
                     self.checkCircleEvent(arc.next, point.y)
 
-                    break
+                    return
 
                 arc = arc.next
 
@@ -156,7 +209,7 @@ class Fortune:
 
             x = (arc.next.point.x + arc.point.x) / 2
 
-            start = Point(x, TOP)
+            start = Point(x, BOTTOM)
 
             halfEdge = HalfEdge(start)
             self.diagram.append(halfEdge)
@@ -166,30 +219,33 @@ class Fortune:
         if event.valid:
             halfEdge = HalfEdge(event.point)
             self.diagram.append(halfEdge)
+            arc = event.arc
 
-            if event.arc.prev is not None:
-                event.arc.prev.next = event.arc.next
-                event.arc.secondHalfEdge = halfEdge
-            if event.arc.next is not None:
-                event.arc.next.prev = event.arc.prev
-                event.arc.firstHalfEdge = halfEdge
+            if arc.prev is not None:
+                arc.prev.next = arc.next
+                arc.secondHalfEdge = halfEdge
+            if arc.next is not None:
+                arc.next.prev = arc.prev
+                arc.firstHalfEdge = halfEdge
 
-            if event.arc.firstHalfEdge is not None:
-                event.arc.firstHalfEdge.finish(event.point)
+            if arc.firstHalfEdge is not None:
+                arc.firstHalfEdge.finish(event.point)
 
-            if event.arc.secondHalfEdge is not None:
-                event.arc.secondHalfEdge.finish(event.point)
+            if arc.secondHalfEdge is not None:
+                arc.secondHalfEdge.finish(event.point)
 
-            if event.arc.prev is not None:
-                self.checkCircleEvent(event.arc.prev, event.y)
+            if arc.prev is not None:
+                self.checkCircleEvent(arc.prev, event.y)
 
-            if event.arc.next is not None:
-                self.checkCircleEvent(event.arc.next, event.y)
+            if arc.next is not None:
+                self.checkCircleEvent(arc.next, event.y)
 
     def findCircleCenter(self, a, b, c):
         x1, y1 = a.x, a.y
         x2, y2 = b.x, b.y
         x3, y3 = c.x, c.y
+
+        if ((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) > 0: return None, None
 
         if x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0:
             return None, None
@@ -205,14 +261,15 @@ class Fortune:
                             x2 ** 2) * x3 - (y2 ** 2) * x3 + (x1 ** 2) * x3 - (x1 ** 2) * x2 + (y1 ** 2) * x3 - (
                             y1 ** 2) * x2) / (
                      y1 * x3 - y1 * x2 - y2 * x3 - y3 * x1 + y3 * x2 + y2 * x1)
-        yMax = ys + ((x1 - xs) ** 2 + (y1 - ys) ** 2) ** 0.5
+        yMax = ys - ((x1 - xs) ** 2 + (y1 - ys) ** 2) ** 0.5
+
         return yMax, Point(xs, ys)
 
     def finishHalfEdges(self):
         arc = self.beachLine
-        while arc is not None:
+        while arc.next is not None:
             if arc.secondHalfEdge is not None:
-                end = self.findParabolasIntersection(BOTTOM, arc.point, arc.next.point)
+                end = self.findIntersection(BOTTOM, arc.point, arc.next.point)
                 arc.secondHalfEdge.finish(end)
 
             arc = arc.next
@@ -221,12 +278,14 @@ class Fortune:
         for d in self.diagram:
             p0 = d.start
             p1 = d.end
-
-            print(p0.x, p0.y)
+            if p1 is None:
+                print(p0.x, p0.y)
+            else:
+                print(p0.x, p0.y, p1.x, p1.y)
 
     def Fortune(self, points):
         for point in points:
-            self.events.push( Point(point[0], point[1]) )
+            self.events.push(Point(point[0], point[1]))
 
         while not self.events.empty():
             event = self.events.pop()
@@ -241,4 +300,5 @@ class Fortune:
 
 a = Fortune()
 
-a.Fortune([(1, 0), (2, 2), (3, 0), (4,6)])
+a.Fortune([(4, 0), (0, 0), (0, 5)])
+print(a.findIntersection(0, Point(1, 1), Point(2, 2)).x)

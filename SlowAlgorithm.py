@@ -80,7 +80,7 @@ def intersecting_line_segments(C, y):
 
 
 def x_from_y(line, y):
-    return (y - line.b) / line.a
+    return (y - line.b) / line.beach_line
 
 
 def is_between(point, l1, l2):

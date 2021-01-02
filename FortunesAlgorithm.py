@@ -151,18 +151,18 @@ class Fortune:
         return None
 
     def checkCircleEvent(self, arc, y):
-        if arc.event is not None and arc.event.point.y != TOP:
-            arc.event.valid = False
+        if arc.circle_event is not None and arc.circle_event.point.y != TOP:
+            arc.circle_event.valid = False
 
-        arc.event = None
+        arc.circle_event = None
 
         if arc.prev is None or arc.next is None:
             return
         yMax, center = self.findCircleCenter(arc.prev.point, arc.point, arc.next.point)
 
         if center is not None and yMax > BOTTOM:
-            arc.event = CircleEvent(yMax, center, arc)
-            self.events.push(arc.event)
+            arc.circle_event = CircleEvent(yMax, center, arc)
+            self.events.push(arc.circle_event)
 
     def handlePointEvent(self, point):
         if self.beachLine is None:
@@ -219,7 +219,7 @@ class Fortune:
         if event.valid:
             halfEdge = HalfEdge(event.point)
             self.diagram.append(halfEdge)
-            arc = event.arc
+            arc = event.beach_line
 
             if arc.prev is not None:
                 arc.prev.next = arc.next

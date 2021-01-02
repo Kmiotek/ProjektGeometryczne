@@ -2,6 +2,62 @@ import heapq
 import itertools
 
 
+class Point:
+    x = 0.0
+    y = 0.0
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+class Circle:
+    x = 0.0
+    point = None
+    arc = None
+    valid = True
+
+    def __init__(self, x, p, a):
+        self.x = x
+        self.point = p
+        self.arc = a
+        self.valid = True
+
+
+class Arc:
+    point = None
+    prev = None
+    next = None
+    circle_event = None
+    upper_edge = None
+    lower_edge = None
+
+    def __init__(self, p, a=None, b=None):
+        self.point = p
+        self.prev = a
+        self.next = b
+        self.circle_event = None
+        self.upper_edge = None
+        self.lower_edge = None
+
+
+class Edge:
+    start = None
+    end = None
+    done = False
+
+    def __init__(self, p):
+        self.start = p
+        self.end = None
+        self.done = False
+
+    def finish(self, p):
+        if self.done:
+            return
+        self.end = p
+        self.done = True
+
+
 class PriorityQueue:
     def __init__(self):
         self.pq = []
@@ -19,12 +75,12 @@ class PriorityQueue:
 
     def remove_entry(self, item):
         entry = self.entry_finder.pop(item)
-        entry[-1] = None
+        entry[-1] = 'Removed'
 
     def pop(self):
         while self.pq:
             priority, count, item = heapq.heappop(self.pq)
-            if item is not None:
+            if item != 'Removed':
                 del self.entry_finder[item]
                 return item
         raise KeyError('pop from an empty priority queue')
@@ -32,7 +88,7 @@ class PriorityQueue:
     def top(self):
         while self.pq:
             priority, count, item = heapq.heappop(self.pq)
-            if item is not None:
+            if item != 'Removed':
                 del self.entry_finder[item]
                 self.push(item)
                 return item

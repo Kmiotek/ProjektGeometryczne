@@ -1,6 +1,4 @@
 # ProjektGeometryczne
 
 
-Tutaj zrobimy dokumentacje np.
-
-#Dokumentacja
+Project using Fortune Algorithm to solve 
